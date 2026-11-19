@@ -1,28 +1,26 @@
 # Testing Ardia on Intel Macs
 
-An unofficial test build of Ardia for Intel Macs (x86_64), made from the `intel-build` branch of
-[philigrin/ardia](https://github.com/philigrin/ardia) for issue
-[ardia-browser/ardia#67](https://github.com/ardia-browser/ardia/issues/67). The goal is to find out whether Ardia
-works on Intel Macs before an Intel build is proposed upstream. It isn't an official Ardia release.
-
-**Build:** `Ardia-0.x-intel-test.2-x86_64.dmg`, Chromium 157.0.8103.50 (Helium 0.21.2), code from ardia `main` on
-2026-11-13 (99ba14b). Signed with Developer ID (Filipp Grinevich, CF6CF6NWCF) and notarized by Apple.
+A checklist for Intel Mac (x86_64) builds of Ardia, `Ardia-<version>-x86_64.dmg` (issue
+[#67](https://github.com/ardia-browser/ardia/issues/67)). Rosetta on Apple Silicon runs these builds for a first
+check, but only a real Intel Mac shows its GPU, video decoding, heat and battery, so this list is for people with one.
+The first round was run by philigrin's testers on their own Intel builds (PR #2090) on several Intel Macs (i5 and i9,
+2018-2019, macOS 15 and 26): every area passed, and one Mac on OpenCore Legacy Patcher had no GPU acceleration (Chrome
+didn't either).
 
 ## Before you start
 
-1. Check the download: `shasum -a 256 Ardia-0.x-intel-test.2-x86_64.dmg` must print the checksum from the release.
-2. If you already use Ardia, quit it first. This build stores its data in the same place as Ardia.
+1. Check the download: `shasum -a 256 Ardia-<version>-x86_64.dmg` must match the release's checksum.
+2. If you already use Ardia, quit it first. The Intel build stores its data in the same place.
 3. Write down your Mac's details for the report: model (Apple menu › About This Mac), CPU, graphics, memory and
    macOS version, and whether you use OpenCore Legacy Patcher.
 
 ## What isn't expected to work
 
-Don't report these. They're known gaps of this test build:
+Don't report these:
 
-- **Automatic updates.** There's no Intel update feed yet, so download new test builds by hand.
-- **iCloud sync and passkeys.** Both are tied to the Ardia author's Apple team, which this build isn't signed with.
 - **The `ardia` command-line tool.** It installs on Apple Silicon only.
-- **Video upscaling** (Settings › Advanced). It needs Apple silicon, so the switch does nothing here.
+- **Video upscaling** (Settings › Advanced) needs macOS 26 and a GPU that macOS's upscalers support; on most Intel Macs
+  the switch does nothing.
 - **Translation.** It needs macOS 26, so on macOS 14 and 15 it isn't offered.
 
 ## Test scenarios
@@ -79,7 +77,7 @@ Reply in [ardia-browser/ardia#67](https://github.com/ardia-browser/ardia/issues/
 ```
 Mac: <model>, <CPU>, <graphics>, <RAM>
 macOS: <version>, OpenCore Legacy Patcher: yes/no
-Build: 0.x-intel-test.2
+Build: <version>-x86_64
 
 1. Install and first launch: ✅/⚠️/❌
 2. Everyday browsing: ✅/⚠️/❌
