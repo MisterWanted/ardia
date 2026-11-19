@@ -4,6 +4,7 @@ import secrets
 import pathlib
 import shutil
 import sqlite3
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -302,7 +303,17 @@ SHIMS = {
 }
 IMPORT_SOURCES = ['ac_linux_import_formats.cc', 'ac_linux_import_readers.cc', 'ac_linux_import_crypto.cc',
                   'ac_linux_import_storage.cc', 'ac_linux_import_secrets.cc', 'ac_linux_import_sessions.cc',
-                  'ac_linux_import_keyring.cc']
+                  'ac_linux_import_keyring.cc', 'ac_linux_import_zen.cc']
+
+
+def mozlz4(data):
+    raw = data.encode() if isinstance(data, str) else data
+    if len(raw) < 15:
+        head = bytes([len(raw) << 4])
+    else:
+        rest = len(raw) - 15
+        head = b'\xf0' + b'\xff' * (rest // 255) + bytes([rest % 255])
+    return b'mozLz40\0' + struct.pack('<I', len(raw)) + head + raw
 
 
 def basic_key():

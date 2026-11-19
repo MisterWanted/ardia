@@ -1334,7 +1334,12 @@ Linux reads calendars from Evolution Data Server, which GNOME Online Accounts, G
   `$XDG_CONFIG_HOME/zen`, and an older one stays in `~/.mozilla/firefox` or `~/.zen`. Import reads the older folder
   when it holds a `profiles.ini`, which an install from before the change keeps using, and otherwise the XDG one; the Flatpaks have the
   same pair under `~/.var/app/<app id>/` (`.mozilla/firefox` or `.zen`, then `config/…`).
-- **Kinds.** Bookmarks, history, passwords, cookies, addresses, cards, open tabs and favicons.
+- **Kinds.** Bookmarks, history, passwords, cookies, addresses, cards, open tabs and favicons. Zen also brings its
+  sidebar, as on the Mac and Windows (`ac_linux_import_zen.cc`): its spaces, Essentials, pinned tabs and folders, and
+  each space's open tabs. It reads `zen-sessions.jsonlz4`, then `zen-sessions-backup/clean.jsonlz4`, then the dated
+  backups newest first, then the Firefox session store, with `places.sqlite`'s `zen_workspaces` as the fallback for an
+  older Zen. `importData` passes the chosen spaces as `spaceIds` (at most 256 ids of up to 256 bytes each). Tab icons
+  come from the session's PNGs first, then from `favicons.sqlite`.
 - **Copies.** Databases are copied `O_NOFOLLOW` into a private temporary folder. Copies older than an hour are swept.
   Source files are never written.
 - **Passwords never reach the renderer.**

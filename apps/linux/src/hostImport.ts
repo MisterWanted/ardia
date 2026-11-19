@@ -18,11 +18,20 @@ export const UNLOCK_DEADLINE_MS = 150_000;
 export const UNLOCK_LIFETIME_MS = 10 * 60_000;
 const HISTORY_CHUNK = 500;
 const TOKEN = /^[0-9a-f]{32}$/;
+export const MAX_SPACE_IDS = 256;
+export const MAX_SPACE_ID_LENGTH = 256;
 
 type Clock = { schedule(run: () => void, ms: number): unknown; cancel(handle: unknown): void; now?(): number };
 const realClock: Clock = { schedule: (run, ms) => setTimeout(run, ms), cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>), now: () => Date.now() };
 
 const count = (value: unknown) => (typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0);
+
+export function nativeSpaceIds(ids: unknown): string[] | undefined {
+  if (!Array.isArray(ids)) return undefined;
+  const bytes = new TextEncoder();
+  const valid = ids.filter((id): id is string => typeof id === "string" && id.length > 0 && bytes.encode(id).length <= MAX_SPACE_ID_LENGTH);
+  return [...new Set(valid)].slice(0, MAX_SPACE_IDS);
+}
 
 export function pendingPasswords(result: unknown): PendingPasswords | null {
   const passwords = (result as { passwords?: unknown } | null)?.passwords as { token?: unknown; count?: unknown } | undefined;
@@ -186,7 +195,7 @@ export function createHostImport(host: ArdiaHost, ImportError: ImportErrorClass,
         },
       );
       options.signal?.addEventListener("abort", abort);
-      const native = { historyLimit: options.historyLimit, historySince: options.historySince };
+      const native = { historyLimit: options.historyLimit, historySince: options.historySince, spaceIds: nativeSpaceIds(options.spaceIds) };
       invoke("startImport", [jobId, browserId, profileId, kinds, native]).catch((error) => finish(() => reject(error)));
     });
   };

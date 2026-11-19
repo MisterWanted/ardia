@@ -17,6 +17,8 @@
 #include "ardia/linux/ac_linux_import_keyring.h"
 #include "ardia/linux/ac_linux_import_readers.h"
 #include "ardia/linux/ac_linux_import_secrets.h"
+#include "ardia/linux/ac_linux_import_zen.h"
+#include "base/json/json_reader.h"
 #include "base/values.h"
 #include "third_party/boringssl/src/include/openssl/evp.h"
 
@@ -357,6 +359,19 @@ int main(int argc, char** argv) {
     std::cout << base::ToJson(out) << "\n";
     return 0;
   }
+  if (command == "space-ids") {
+    std::optional<base::Value> given = base::JSONReader::Read(Slurp(argv[2]));
+    std::optional<std::vector<std::string>> ids;
+    base::DictValue out;
+    out.Set("valid", given && RequestedSpaceIds(&*given, &ids));
+    if (ids) {
+      base::ListValue list;
+      for (const std::string& id : *ids) list.Append(id);
+      out.Set("ids", std::move(list));
+    }
+    std::cout << base::ToJson(out) << "\n";
+    return 0;
+  }
   if (command == "sweep") {
     std::printf("%d\n", RemoveStaleScratch(argv[2], std::atoll(argv[3]), std::atoll(argv[4])));
     return 0;
@@ -376,6 +391,7 @@ int main(int argc, char** argv) {
     if (argc > 13 && std::string(argv[13]) != "-") options.firefox_primary_password = SecretBytes(argv[13]);
     options.now_ms = argc > 14 ? std::atof(argv[14]) : 1700000000000.0;
     if (argc > 15 && std::string(argv[15]) != "-") options.firefox_card_key = SecretBytes(Unhex(argv[15]));
+    if (argc > 16 && std::string(argv[16]) != "-") options.space_ids = Split(argv[16]);
     ImportOutcome outcome = ReadBrowserProfile(environment, argv[6], argv[7], Split(argv[8]), options, recorder);
     base::DictValue out;
     out.Set("cancelled", outcome.cancelled);
