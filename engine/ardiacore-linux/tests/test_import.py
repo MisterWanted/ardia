@@ -3,7 +3,7 @@ import os
 import sqlite3
 import unittest
 
-from support import ImportFixture, basic_key, bookmark, encrypt_v10, folder, links, make_history, make_logins, tree_digests, webkit
+from support import ImportFixture, basic_key, bookmark, encrypt_v10, folder, links, make_firefox_key4, make_firefox_logins_db, make_history, make_logins, tree_digests, webkit
 
 
 class FormatTests(ImportFixture):
@@ -280,6 +280,39 @@ class ReaderTests(ImportFixture):
         self.assertEqual(result['failed'], [])
         self.assertEqual([(w['kind'], w['code']) for w in result['warnings']], [('passwords', 'empty')])
         self.assertNotIn('profile', result)
+
+    def test_an_empty_logins_db_means_no_saved_passwords_not_a_failure(self):
+        profile = self.build_firefox()
+        make_firefox_key4(profile / 'key4.db')
+        make_firefox_logins_db(profile / 'logins.db')
+        result = self.read('firefox', 'abcd.default-release', ['passwords'])['result']
+        self.assertEqual(result['failed'], [])
+        self.assertEqual([(w['kind'], w['code']) for w in result['warnings']], [('passwords', 'empty')])
+
+        (profile / 'logins.json').write_text('{"logins": []}')
+        result = self.read('firefox', 'abcd.default-release', ['passwords'])['result']
+        self.assertEqual((result['failed'], result['warnings']), ([], []))
+
+    def test_logins_db_with_logins_reads_every_row_and_still_needs_its_key(self):
+        profile = self.build_firefox()
+        key = bytes(range(32))
+        sealed = lambda user, password: self.run_binary('jwe', key.hex(), json.dumps({'u': user, 'p': password})).strip()
+        make_firefox_logins_db(profile / 'logins.db', [
+            ('g1', 'https://first.example', 'https://first.example', sealed('alice', 'first-pass-1'), 1700000000000, 1700000000000, 2),
+            ('g0', 'chrome://FirefoxAccounts', None, sealed('sync', 'sync-secret-0'), 1, 1, 1),
+            ('g2', 'https://second.example', None, sealed('bob', 'second-pass-2'), 1600000000000, 1600000000000, 1),
+        ])
+        make_firefox_key4(profile / 'key4.db')
+        result = self.read('firefox', 'abcd.default-release', ['passwords'])['result']
+        self.assertEqual(result['failed'], ['passwords'])
+        self.assertEqual([(w['kind'], w['code']) for w in result['warnings']], [('passwords', 'unreadable')])
+
+        (profile / 'key4.db').unlink()
+        make_firefox_key4(profile / 'key4.db', logins_key=key)
+        out = self.read('firefox', 'abcd.default-release', ['passwords'])
+        self.assertEqual((out['result']['failed'], out['result']['warnings']), ([], []))
+        self.assertEqual(sorted((c['username'], c['password']) for c in out['credentials']),
+                         [('alice', 'first-pass-1'), ('bob', 'second-pass-2')])
 
     def zen_root(self, root, name):
         profile = root / f'zz{name}.Default (release)'
