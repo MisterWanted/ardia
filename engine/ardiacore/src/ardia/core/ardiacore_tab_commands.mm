@@ -257,19 +257,19 @@ std::optional<bool> RunPageCommand(content::WebContents* contents, int command) 
     return;
   }
   const std::string name = base::SysNSStringToUTF8(panel);
-  content::WebContents* devtools =
-      DevToolsWindow::GetInTabWebContents(_contents, nullptr);
-  DevToolsUIBindings* bindings =
-      devtools ? DevToolsUIBindings::ForWebContents(devtools) : nullptr;
-  if (bindings) {
+  Profile* profile =
+      Profile::FromBrowserContext(_contents->GetBrowserContext());
+  ScopedDictPrefUpdate preferences(profile->GetPrefs(),
+                                   prefs::kDevToolsPreferences);
+  preferences->Set("panel-selected-tab",
+                   base::WriteJson(base::Value(name)).value_or(std::string()));
+  DevToolsWindow* window =
+      DevToolsWindow::GetInstanceForInspectedWebContents(_contents);
+  if (DevToolsUIBindings* bindings =
+          window ? DevToolsUIBindings::ForWebContents(
+                       window->GetDevToolsWebContents())
+                 : nullptr) {
     bindings->CallClientMethod("DevToolsAPI", "showPanel", base::Value(name));
-  } else {
-    Profile* profile =
-        Profile::FromBrowserContext(_contents->GetBrowserContext());
-    ScopedDictPrefUpdate preferences(profile->GetPrefs(),
-                                     prefs::kDevToolsPreferences);
-    preferences->Set("panel-selected-tab", base::WriteJson(base::Value(name))
-                                                .value_or(std::string()));
   }
   DevToolsWindow::OpenDevToolsWindow(_contents, DevToolsToggleAction::Show(),
                                      DevToolsOpenedByAction::kUnknown);
