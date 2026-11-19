@@ -6,10 +6,11 @@ previous="${2:?usage: smoke.sh <version> <previous-version> [--rc]}"
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib/harness.sh"
 root="$harness_root"
-if [ "${3:-}" = --rc ]; then dist="$root/dist/$version-rc"; else dist="$root/dist/$version"; fi
+. "$root/scripts/lib/paths.sh"
+if [ "${3:-}" = --rc ]; then dist="$root/dist/$version-rc$engine_suffix"; else dist="$root/dist/$version$engine_suffix"; fi
 app="${SMOKE_APP:-$dist/export/Ardia.app}"
-old="$(ls -d "$root/dist/$previous/export"/*.app 2>/dev/null | head -1)"
-old="${old:-$root/dist/$previous/export/Ardia.app}"
+old="$(ls -d "$root/dist/$previous$engine_suffix/export"/*.app 2>/dev/null | head -1)"
+old="${old:-$root/dist/$previous$engine_suffix/export/Ardia.app}"
 [ -d "$app" ] || { echo "error: no $app (run scripts/release.sh $version first)" >&2; exit 1; }
 [ "$(cd "$app" && pwd -P)" != /Applications/Ardia.app ] || { echo "error: never the installed app (/Applications/Ardia.app)" >&2; exit 1; }
 
@@ -32,6 +33,11 @@ info() { /usr/libexec/PlistBuddy -c "Print :$2" "$1/Contents/Info.plist" 2>/dev/
 cdhash() { codesign -dvvv "$1" 2>&1 | sed -n 's/^CDHash=//p'; }
 
 fw="$app/Contents/Frameworks"
+foreign_arch="$(find "$app" -type f -perm +111 -print0 | xargs -0 file -h | awk -F': ' '/Mach-O/ { print $1 }' | while read -r binary; do
+  [[ " $(lipo -archs "$binary" 2>/dev/null) " == *" $ardia_arch "* ]] || echo "${binary#"$app"/}"
+done)"
+[ -z "$foreign_arch" ] && [ "$(lipo -archs "$app/Contents/MacOS/$(info "$app" CFBundleExecutable)")" = "$ardia_arch" ] && ok=1 || ok=0
+check "the app is $ardia_arch, and every Mach-O in it has a $ardia_arch slice" $ok "$(head -c 300 <<<"$foreign_arch")"
 [ -d "$fw/Chromium Framework.framework" ] && [ ! -e "$fw/Chromium Embedded Framework.framework" ] && ok=1 || ok=0
 check "the engine is ArdiaCore (Chrome's framework, no CEF)" $ok \
   "$(plutil -extract CFBundleShortVersionString raw "$fw/Chromium Framework.framework/Resources/Info.plist" 2>/dev/null)"
@@ -72,13 +78,14 @@ if [ -d "$old" ]; then
 else
   check "$previous's export to compare with" 0 "no $old"
 fi
-zip="$dist/Ardia-$version.zip"
-dmg="$dist/Ardia-$version.dmg"
+zip="$dist/Ardia-$version$engine_suffix.zip"
+dmg="$dist/Ardia-$version$engine_suffix.dmg"
+feed_file="$dist/appcast$engine_suffix.xml"
 if [ -z "${SMOKE_APP:-}" ]; then
-  for f in "$zip" "$dmg" "$dist/appcast.xml"; do [ -f "$f" ] || check "the release has $(basename "$f")" 0; done
-  if [ -f "$zip" ] && [ -f "$dist/appcast.xml" ]; then
+  for f in "$zip" "$dmg" "$feed_file"; do [ -f "$f" ] || check "the release has $(basename "$f")" 0; done
+  if [ -f "$zip" ] && [ -f "$feed_file" ]; then
     swiftc -O "$here/ed25519.swift" -o "$work/ed25519" 2>/dev/null
-    read -r signature length < <(python3 -I "$here/appcast.py" enclosure "$dist/appcast.xml" "$version" || true)
+    read -r signature length < <(python3 -I "$here/appcast.py" enclosure "$feed_file" "$version" || true)
     ok=0
     [ -n "$signature" ] && "$work/ed25519" verify "$zip" "$signature" "$(info "$app" SUPublicEDKey)" && [ "$length" = "$(stat -f %z "$zip")" ] && ok=1
     check "the appcast's EdDSA signature of the zip verifies with the app's SUPublicEDKey" $ok "length ${length:-none}"
@@ -99,8 +106,8 @@ if [ -z "${SMOKE_APP:-}" ] && [ -f "$dmg" ]; then
   check "the DMG is signed, notarized and stapled" $ok
 fi
 if [ -d "$old" ]; then
-  if [ -z "${SMOKE_APP:-}" ] && [ -f "$dist/appcast.xml" ]; then
-    TMPDIR="$work" "$here/update-test.sh" "$old" "$app" "$dist/appcast.xml" "$version" || status=1
+  if [ -z "${SMOKE_APP:-}" ] && [ -f "$feed_file" ]; then
+    TMPDIR="$work" "$here/update-test.sh" "$old" "$app" "$feed_file" "$version" || status=1
   fi
   TMPDIR="$work" "$here/carryover.sh" "$old" "$app" || status=1
 fi
@@ -187,7 +194,9 @@ kill -KILL "$pid" 2>/dev/null || true
 pid=""
 node "$root/packages/ardiacore/scripts/popup-check.mjs" "$app" "$work/popup-check" || status=1
 cli_tarball="$dist/ardia-cli-$version-macos-arm64.tar.gz"
-if [ -f "$cli_tarball" ]; then
+if [ -n "$engine_suffix" ]; then
+  echo "      no ardia CLI check: the CLI is arm64 only, and $(basename "$dmg") doesn't carry it"
+elif [ -f "$cli_tarball" ]; then
   mkdir -p "$work/cli" && tar -xzf "$cli_tarball" -C "$work/cli"
   ARDIA_CLI_HOME="$work/cli-home" "$root/apps/cli/scripts/token-smoke.sh" "$app" "$(ls "$work"/cli/*/bin/ardia)" || status=1
 elif [ -z "${SMOKE_APP:-}" ]; then

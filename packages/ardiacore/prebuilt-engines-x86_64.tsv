@@ -1,0 +1,3 @@
+# Prebuilt Intel (x86_64) engines, read by packages/ardiacore/scripts/fetch-engine.sh under ARDIA_ARCH=x86_64: engine/'s
+# git tree, the release whose assets have ArdiaCore-<tree:12>-x86_64.tar.xz, the archive's SHA-256. scripts/publish-engine.sh
+# appends a line when ARDIA_ARCH=x86_64 publishes one.

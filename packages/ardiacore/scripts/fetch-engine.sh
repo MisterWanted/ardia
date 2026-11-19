@@ -76,7 +76,7 @@ if [ ! -f "$dest/.complete" ]; then
   trap 'rm -rf "$tmp"' EXIT
   echo "downloading the engine from $version ($url)" >&2
   curl -fL --retry 3 --progress-bar -o "$tmp/$file" "$url" || die "couldn't download $url"
-  [ "$(shasum -a 256 "$tmp/$file" | awk '{ print $1 }')" = "$sha" ] || die "$file doesn't match its SHA-256 in prebuilt-engines.tsv"
+  [ "$(shasum -a 256 "$tmp/$file" | awk '{ print $1 }')" = "$sha" ] || die "$file doesn't match its SHA-256 in $(basename "$table")"
   tar -xJf "$tmp/$file" -C "$tmp" || die "couldn't unpack $file"
   [ -f "$tmp/$name.framework/Versions/Current/$name" ] || die "$file holds no $name.framework"
   rm -f "$tmp/$file"
@@ -85,7 +85,10 @@ if [ ! -f "$dest/.complete" ]; then
   mv "$tmp" "$dest"
   trap - EXIT
   for old in "$store"/*/; do
-    [ "${old%/}" = "$dest" ] || rm -rf "${old%/}"
+    old="${old%/}"
+    case "$(basename "$old")" in
+      ????????????"$engine_suffix") [ "$old" = "$dest" ] || rm -rf "$old" ;;
+    esac
   done
 fi
 echo "$dest/$name.framework"

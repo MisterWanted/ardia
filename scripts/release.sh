@@ -30,7 +30,7 @@ stages="$(cd "$(dirname "$0")/release" && pwd -P)"
 . "$root/scripts/lib/paths.sh"
 channel="$(channel_of "$version")"
 
-if [ "$rc" = 1 ]; then dist="$root/dist/$version-rc"; else dist="$root/dist/$version"; fi
+if [ "$rc" = 1 ]; then dist="$root/dist/$version-rc$engine_suffix"; else dist="$root/dist/$version$engine_suffix"; fi
 [ "$rc" = 1 ] && [ -n "${RC_DIST:-}" ] && dist="$(cd "$root" && mkdir -p "$RC_DIST" && cd "$RC_DIST" && pwd)"
 app="$dist/export/Ardia.app"
 cli_tarball="$dist/ardia-cli-$version-macos-arm64.tar.gz"
@@ -128,7 +128,7 @@ if [ "$phase" != build ]; then
   engine_tree="$("$root/engine/engine-key.sh")"
   engine_release="$(awk -v t="$engine_tree" '$1 == t { print $2; exit }' "$ardiacore/prebuilt-engines$engine_suffix.tsv")"
   [ "$rc" = 1 ] || [ -n "$engine_release" ] \
-    || die "packages/ardiacore/prebuilt-engines.tsv lists no published engine for this engine key (${engine_tree:0:12}): publish it with scripts/publish-engine.sh, commit the table line, then release"
+    || die "packages/ardiacore/prebuilt-engines$engine_suffix.tsv lists no published engine for this engine key (${engine_tree:0:12}): publish it with${engine_suffix:+ ARDIA_ARCH=$ardia_arch} scripts/publish-engine.sh, commit the table line, then release"
   case "$engine_release" in engine-*) engine_tag="$engine_release" ;; *) engine_tag="v$engine_release" ;; esac
   [ -n "$engine_release" ] \
     && engine_source="$REPO_URL/releases/download/$engine_tag/ArdiaCore-${engine_tree:0:12}-source.tar.xz"
@@ -222,7 +222,7 @@ SPARKLE_BIN="$sparkle" SPARKLE_KEY_FILE="$sparkle_key_file" "$stages/appcast.sh"
 echo
 [ "$notarize" = 1 ] && echo "Notarized and stapled." || echo "NOT notarized."
 [ "$rc" = 1 ] && echo "Release candidate: never publish dist/$version-rc."
-[ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with .claude/skills/release/scripts/publish.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
+[ "$channel" = nightly ] && [ "$rc" = 0 ] && echo "Nightly: publish it with${engine_suffix:+ ARDIA_ARCH=$ardia_arch} .claude/skills/release/scripts/publish.sh $version (a prerelease; the feed and ardia.dev/nightly follow)."
 [ "$phase" = sign ] && echo "Not launched yet: remove the signing keys, then run the launch check (--phase check)."
 [ -n "$phased" ] && echo "Phased rollout: $phased s between steps (the appcast item has phasedRolloutInterval; the whole release takes $((phased * 7)) s)."
 du -sh "$app" "$dist/Ardia-$version$engine_suffix.dmg" "$dist/Ardia-$version$engine_suffix.zip" "$cli_tarball" "$dist/appcast$engine_suffix.xml" "$dist/release-notes.md"
